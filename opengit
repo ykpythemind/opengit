@@ -1,0 +1,88 @@
+#!/usr/bin/env ruby
+require 'optparse'
+
+if ARGV.include? "-h"
+  puts "usage: Open Git repository where current project is hosted"
+  puts <<-USAGE
+-p open Pull Request
+  USAGE
+  exit
+end
+
+class Host
+  attr_reader :remote
+
+  def initialize(remote)
+    @remote = remote
+  end
+
+  def open!
+    exec "open #{url}"
+  end
+
+  def match
+    remote.match(exp)
+  end
+
+  def url
+    raise NotImplementedError
+  end
+
+  def exp
+    raise NotImplementedError
+  end
+end
+
+class GitHub < Host
+  def url
+    "https://github.com/#{match[2]}"
+  end
+
+  def exp
+    /github\.com(:|\/)(.+)/
+  end
+end
+
+class GitLab < Host
+  def url
+    "https://gitlab.com/#{match[2]}"
+  end
+
+  def exp
+    /gitlab\.com(:|\/)(.+)/
+  end
+end
+
+class BitBucket < Host
+  def url
+    "https://bitbucket.org/#{match[3]}"
+  end
+
+  def exp
+    /bitbucket\.(com|org)(:|\/)(.+)\.git/
+  end
+end
+
+url = `git remote get-url origin`
+if url.empty? || $?.exitstatus != 0
+  abort 'Not a git repository or remote-url is not set'
+end
+
+puts url
+if url.match /github\.com/
+  host = GitHub.new(url)
+elsif url.match /gitlab\.com/
+  host = GitLab.new(url)
+elsif url.match /bitbucket/
+  host = BitBucket.new(url)
+end
+
+if host.nil?
+  abort 'Host url is not valid'
+end
+
+host.open!
+
+# if ARGV.include? "p"
+# else
+# end
